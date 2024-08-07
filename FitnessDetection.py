@@ -2,12 +2,13 @@
 import cv2 as cv
 import mediapipe as mp
 import numpy as np
-import torch as pt
 import tkinter as tk
 from tkinter import ttk
 from PIL import ImageTk, Image
 import time
 import sv_ttk
+from Panda_app import Panda3DApp 
+
 
 class Exercise:
     def __init__(self, name, repNumber, duration):
@@ -19,6 +20,19 @@ class fitnessDetection:
     def __init__(self):
         self.exercises = []
         self.running = False
+
+    def calculateAngle(a,b,c):
+        a = np.array(a)
+        b = np.array(b)
+        c = np.array(c)
+
+        radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
+        angle = np.abs(radians*180.0/np.pi)
+
+        if angle>180.0:
+            angle = 360-angle
+        return angle
+
 
     def start_video(self):
         mp_drawing = mp.solutions.drawing_utils
@@ -75,21 +89,18 @@ class fitnessDetection:
                 #Extract key body landmarks if the landmark isnt null
                 if  not results.pose_landmarks is None:
                     left_knee = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_KNEE]
-                    right_knee = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE]
                     left_ankle = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_ANKLE]
-                    right_ankle = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_ANKLE]
                     left_hip = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP]
-                    right_hip = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP]
-                    left_shoulder = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER]
-                    right_shoulder= results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+                
+                    #calculate angle
+                    angle = detection.calculateAngle(left_knee, left_ankle,left_hip)
+                    if angle> 160:
+                        stage = "down"
+                    if angle<30 and stage == "down":
+                        counter+=1
+                        exercise_log.insert(" ",tk.END,values = "Name: Squat" + "\nNumber of Reps: " + counter + "\nTime Duration: ")
                 else:
                     print("No landmarks detected")
-
-                #calculate angles 
-
-                #final adjustment to model
-
-                #output
 
                 # show ouput/video feed inside of tkinter window
                 img = Image.fromarray(cv.cvtColor(image,cv.COLOR_BGR2RGB))
@@ -99,18 +110,12 @@ class fitnessDetection:
                 #configure photo image as the display image
                 image_label.configure(image=imgtk)
                 image_label.update()
-
-                #exercise_log.insert(" ",tk.END,values = "Name: " + Exercise.name + "\nNumber of Reps: " + Exercise.repNumber + "\nTime Duration: " + Exercise.duration)
-
-                
-
-        capture.release()
-        cv.destroyAllWindows()
-
-
+   
 if __name__ == "__main__":
     #create an instance of the fitnessDetection class
     detection = fitnessDetection()
+   
+
     global image_label
     window = tk.Tk()
     window.minsize(1280, 800)
@@ -132,13 +137,16 @@ if __name__ == "__main__":
     model_window = ttk.LabelFrame(right_frame, text = "3D Model")
     model_window.grid(row = 1, column = 0, pady = 5, padx = 5)
 
-    
-    image1 = Image.open("TemporaryImages/97148e50839746ab89f956c3b934cbb1.jpeg")
-    image1 = image1.resize((360, 203), Image.LANCZOS)
-    test = ImageTk.PhotoImage(image1)
-    label1 = tk.Label(model_window,image=test)
-    label1.image = test
-    label1.grid(row=0, column=0, pady=5, padx=5)
+    #image1 = Image.open("TemporaryImages/97148e50839746ab89f956c3b934cbb1.jpeg")
+    #image1 = image1.resize((360, 203), Image.LANCZOS)
+    #test = ImageTk.PhotoImage(image1)
+
+    panda_frame = tk.Frame(model_window, width=640, height=480)
+    panda_frame.grid(row=0, column=0, pady=5, padx=5)
+    panda_window = Panda3DApp(panda_frame)
+
+
+   
 
     image_label = ttk.Label(live_feed)
     image_label.grid(row = 0, column = 0, pady = 5, padx = 5)
@@ -166,8 +174,6 @@ if __name__ == "__main__":
     exercise_log.grid(row = 1, column = 0, pady=5, padx=20)
     exercise_log.heading("#0", text = "Exercise Log")
     exercise_log.column("#0", width=600)
-
-   
 
     sv_ttk.set_theme("dark")
     window.mainloop()
